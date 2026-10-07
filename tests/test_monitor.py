@@ -58,6 +58,22 @@ class CapacityTests(unittest.TestCase):
         ]
         self.assertFalse(monitor.capacity_is_available(results))
 
+    def test_classify_empty_report_as_error(self):
+        with self.assertRaises(RuntimeError):
+            monitor.classify_capacity([])
+
+    def test_classify_hardware_not_supported_as_error(self):
+        results = [
+            monitor.CapacityResult(
+                availability_domain="AD-1",
+                fault_domain=None,
+                status="HARDWARE_NOT_SUPPORTED",
+                available_count=0,
+            )
+        ]
+        with self.assertRaises(RuntimeError):
+            monitor.classify_capacity(results)
+
     def test_oci_sdk_accepts_a1_flex_configuration(self):
         shape_config = oci.core.models.CapacityReportInstanceShapeConfig(
             ocpus=monitor.OCPUS,
