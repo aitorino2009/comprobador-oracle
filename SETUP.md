@@ -24,9 +24,20 @@ La región debe ser `eu-madrid-1`.
 
 ### Permisos OCI
 
-El monitor solo necesita consultar informes de capacidad Compute. Si usas tu usuario administrador actual, funcionará sin crear una política adicional.
+El monitor solo necesita consultar informes de capacidad Compute y descubrir el Availability Domain de Madrid.
 
-Cuando el sistema esté funcionando, lo recomendable es crear un usuario técnico dedicado con permisos mínimos para `compute-capacity-reports`.
+**Ruta rápida:** si generas la API Key en tu usuario administrador actual, funcionará sin crear políticas adicionales.
+
+**Ruta recomendada de mínimo privilegio:** crea un usuario técnico, por ejemplo `oracle-capacity-monitor`, añádelo a un grupo del mismo nombre y crea una política con estas dos sentencias:
+
+```
+Allow group OracleCapacityMonitor to manage compute-capacity-reports in tenancy
+Allow group OracleCapacityMonitor to inspect compartments in tenancy
+```
+
+La primera permite exclusivamente crear el informe puntual de capacidad; la segunda permite obtener el nombre interno del Availability Domain mediante `ListAvailabilityDomains`.
+
+No necesita permisos para crear, borrar, arrancar o modificar instancias.
 
 ## 2. Crear el bot de Telegram
 
