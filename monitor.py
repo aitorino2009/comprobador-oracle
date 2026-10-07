@@ -46,10 +46,12 @@ def load_state() -> dict[str, Any]:
 
 def save_state(state: str, results: list[CapacityResult]) -> None:
     previous = load_state()
-    changed = previous.get("state") != state
+    if previous.get("state") == state:
+        return
+
     payload = {
         "state": state,
-        "last_change_utc": now_utc_iso() if changed else previous.get("last_change_utc"),
+        "last_change_utc": now_utc_iso(),
         "last_capacity": [asdict(result) for result in results],
     }
     STATE_FILE.write_text(
