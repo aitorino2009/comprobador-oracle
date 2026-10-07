@@ -1,0 +1,57 @@
+name: Obtener Telegram Chat ID
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Detectar chat privado
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Buscar el último chat privado del bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+          if not token:
+              raise SystemExit("Falta el secret TELEGRAM_BOT_TOKEN.")
+
+          with urllib.request.urlopen(
+              f"https://api.telegram.org/bot{token}/getUpdates",
+              timeout=20,
+          ) as response:
+              data = json.loads(response.read().decode("utf-8"))
+
+          chats = []
+          for update in data.get("result", []):
+              message = update.get("message") or update.get("edited_message")
+              if not message:
+                  continue
+              chat = message.get("chat") or {}
+              if chat.get("type") == "private" and chat.get("id") is not None:
+                  chats.append(chat)
+
+          if not chats:
+              raise SystemExit(
+                  "No hay chat privado todavía. Abre el bot en Telegram, pulsa START "
+                  "o envía /start y vuelve a ejecutar este workflow."
+              )
+
+          chat = chats[-1]
+          print("")
+          print("==========================================")
+          print(f"TELEGRAM_CHAT_ID = {chat['id']}")
+          print(f"Nombre detectado = {chat.get('first_name', '(sin nombre)')}")
+          print("==========================================")
+          print("")
+          PY
