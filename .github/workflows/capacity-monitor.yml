@@ -101,8 +101,6 @@ jobs:
           git config user.name "oracle-capacity-monitor[bot]"
           git config user.email "oracle-capacity-monitor[bot]@users.noreply.github.com"
 
-          # Evita conflictos si hubiera un commit entre checkout y este punto.
-          git pull --rebase origin main
           git add state.json
           git commit -m "chore: update Oracle capacity state"
           git push origin main
