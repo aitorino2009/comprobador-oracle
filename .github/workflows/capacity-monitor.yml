@@ -1,0 +1,114 @@
+name: Comprobar capacidad Oracle A1.Flex
+
+on:
+  schedule:
+    # Repositorio privado: 48 ejecuciones/día ~= 1.440 minutos/mes como máximo
+    # porque GitHub redondea cada job al minuto. Así cabe en GitHub Free (2.000)
+    # dejando margen para otros workflows.
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      send_test:
+        description: "Enviar también un mensaje de prueba a Telegram"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: oracle-a1-capacity-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Consultar capacidad
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Instalar OCI SDK
+        run: pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Preparar credenciales OCI
+        id: oci
+        shell: bash
+        env:
+          OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          for name in OCI_TENANCY_OCID OCI_USER_OCID OCI_FINGERPRINT OCI_PRIVATE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Falta el secret $name"
+              exit 1
+            fi
+          done
+
+          mkdir -p "$RUNNER_TEMP/oci"
+          printf '%s' "$OCI_PRIVATE_KEY" > "$RUNNER_TEMP/oci/api_key.pem"
+          chmod 600 "$RUNNER_TEMP/oci/api_key.pem"
+
+          cat > "$RUNNER_TEMP/oci/config" <<EOF
+          [DEFAULT]
+          user=$OCI_USER_OCID
+          fingerprint=$OCI_FINGERPRINT
+          tenancy=$OCI_TENANCY_OCID
+          region=eu-madrid-1
+          key_file=$RUNNER_TEMP/oci/api_key.pem
+          EOF
+          chmod 600 "$RUNNER_TEMP/oci/config"
+
+          echo "config_file=$RUNNER_TEMP/oci/config" >> "$GITHUB_OUTPUT"
+
+      - name: Consultar Oracle y avisar si hay capacidad
+        id: monitor
+        continue-on-error: true
+        env:
+          OCI_CONFIG_FILE: ${{ steps.oci.outputs.config_file }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ "${{ inputs.send_test || 'false' }}" = "true" ]; then
+            python monitor.py --send-test
+          else
+            python monitor.py
+          fi
+
+      - name: Guardar cambio de estado
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- state.json; then
+            exit 0
+          fi
+
+          git config user.name "oracle-capacity-monitor[bot]"
+          git config user.email "oracle-capacity-monitor[bot]@users.noreply.github.com"
+
+          # Evita conflictos si hubiera un commit entre checkout y este punto.
+          git pull --rebase origin main
+          git add state.json
+          git commit -m "chore: update Oracle capacity state"
+          git push origin main
+
+      - name: Marcar fallo real del monitor
+        if: steps.monitor.outcome == 'failure'
+        run: |
+          echo "::error::La consulta a Oracle falló. Revisa el paso anterior."
+          exit 1
