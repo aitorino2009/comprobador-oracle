@@ -2,10 +2,10 @@ name: Comprobar capacidad Oracle A1.Flex
 
 on:
   schedule:
-    # Repositorio privado: 48 ejecuciones/día ~= 1.440 minutos/mes como máximo
-    # porque GitHub redondea cada job al minuto. Así cabe en GitHub Free (2.000)
-    # dejando margen para otros workflows.
-    - cron: "7,37 * * * *"
+    # Repositorio público: runners estándar de GitHub Actions no consumen
+    # la cuota mensual de minutos. Comprobamos cada 5 minutos para reaccionar
+    # rápidamente cuando aparezca capacidad.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       send_test:
