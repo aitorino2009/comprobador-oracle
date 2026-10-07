@@ -1,15 +1,9 @@
 import importlib.util
 import pathlib
 import sys
-import types
 import unittest
 
-# Las funciones puras del monitor se pueden probar sin llamar a OCI.
-# Si el SDK no está instalado localmente, creamos un módulo mínimo para importar el archivo.
-try:
-    import oci  # noqa: F401
-except ImportError:
-    sys.modules["oci"] = types.SimpleNamespace()
+import oci
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "monitor.py"
 spec = importlib.util.spec_from_file_location("monitor", MODULE_PATH)
@@ -63,6 +57,16 @@ class CapacityTests(unittest.TestCase):
             )
         ]
         self.assertFalse(monitor.capacity_is_available(results))
+
+    def test_oci_sdk_accepts_a1_flex_configuration(self):
+        shape_config = oci.core.models.CapacityReportInstanceShapeConfig(
+            ocpus=monitor.OCPUS,
+            memory_in_gbs=monitor.MEMORY_GB,
+            baseline_ocpu_utilization="BASELINE_1_1",
+        )
+        self.assertEqual(shape_config.ocpus, 1.0)
+        self.assertEqual(shape_config.memory_in_gbs, 6.0)
+        self.assertEqual(shape_config.baseline_ocpu_utilization, "BASELINE_1_1")
 
 
 if __name__ == "__main__":
