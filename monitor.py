@@ -142,6 +142,24 @@ def capacity_is_available(results: list[CapacityResult]) -> bool:
     )
 
 
+def classify_capacity(results: list[CapacityResult]) -> str:
+    if not results:
+        raise RuntimeError("OCI devolvió un informe de capacidad vacío.")
+
+    unexpected = [
+        result
+        for result in results
+        if result.status not in {"AVAILABLE", "OUT_OF_HOST_CAPACITY"}
+    ]
+    if unexpected:
+        statuses = ", ".join(sorted({result.status for result in unexpected}))
+        raise RuntimeError(
+            f"OCI devolvió un estado no esperado para la shape: {statuses}."
+        )
+
+    return "AVAILABLE" if capacity_is_available(results) else "UNAVAILABLE"
+
+
 def availability_message(results: list[CapacityResult]) -> str:
     available = [
         result
@@ -195,7 +213,23 @@ def run_check(send_test: bool = False) -> int:
         print(f"ERROR consultando OCI: {exc}", file=sys.stderr)
         return 2
 
-    current_state = "AVAILABLE" if capacity_is_available(results) else "UNAVAILABLE"
+    try:
+        current_state = classify_capacity(results)
+    except Exception as exc:
+        if previous_state != "ERROR":
+            try:
+                telegram_send(
+                    "⚠️ Oracle ha devuelto un informe de capacidad inesperado. "
+                    "Revisa GitHub Actions antes de asumir que no hay capacidad."
+                )
+            except Exception as telegram_exc:
+                print(
+                    f"No se pudo enviar la alerta de error a Telegram: {telegram_exc}",
+                    file=sys.stderr,
+                )
+        save_state("ERROR", results)
+        print(f"ERROR interpretando el informe OCI: {exc}", file=sys.stderr)
+        return 2
 
     print(
         json.dumps(
