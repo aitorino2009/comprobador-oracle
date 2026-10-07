@@ -1,5 +1,12 @@
 {
-  "state": "UNKNOWN",
-  "last_change_utc": null,
-  "last_capacity": []
+  "state": "UNAVAILABLE",
+  "last_change_utc": "2026-10-07T13:43:06+00:00",
+  "last_capacity": [
+    {
+      "availability_domain": "sXlX:EU-MADRID-1-AD-1",
+      "fault_domain": null,
+      "status": "OUT_OF_HOST_CAPACITY",
+      "available_count": null
+    }
+  ]
 }
