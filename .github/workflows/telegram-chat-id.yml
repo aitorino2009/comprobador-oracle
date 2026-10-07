@@ -20,38 +20,98 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import time
+          import urllib.error
           import urllib.request
 
           token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
           if not token:
               raise SystemExit("Falta el secret TELEGRAM_BOT_TOKEN.")
 
-          with urllib.request.urlopen(
-              f"https://api.telegram.org/bot{token}/getUpdates",
-              timeout=20,
-          ) as response:
-              data = json.loads(response.read().decode("utf-8"))
+          base = f"https://api.telegram.org/bot{token}"
 
-          chats = []
-          for update in data.get("result", []):
-              message = update.get("message") or update.get("edited_message")
-              if not message:
-                  continue
-              chat = message.get("chat") or {}
-              if chat.get("type") == "private" and chat.get("id") is not None:
-                  chats.append(chat)
+          def api(method, payload=None):
+              body = None
+              headers = {}
+              if payload is not None:
+                  body = json.dumps(payload).encode("utf-8")
+                  headers["Content-Type"] = "application/json"
 
-          if not chats:
+              request = urllib.request.Request(
+                  f"{base}/{method}",
+                  data=body,
+                  headers=headers,
+                  method="POST" if body is not None else "GET",
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=25) as response:
+                      data = json.loads(response.read().decode("utf-8"))
+              except urllib.error.HTTPError as exc:
+                  raw = exc.read().decode("utf-8", errors="replace")
+                  raise SystemExit(
+                      f"Telegram devolvió HTTP {exc.code}: {raw}"
+                  ) from exc
+
+              if not data.get("ok"):
+                  raise SystemExit(
+                      f"Telegram API error en {method}: "
+                      f"{data.get('description', 'error desconocido')}"
+                  )
+              return data.get("result")
+
+          me = api("getMe")
+          print(f"Bot detectado: @{me.get('username', '(sin username)')}")
+
+          webhook = api("getWebhookInfo")
+          webhook_url = webhook.get("url", "")
+          if webhook_url:
               raise SystemExit(
-                  "No hay chat privado todavía. Abre el bot en Telegram, pulsa START "
-                  "o envía /start y vuelve a ejecutar este workflow."
+                  "Este bot tiene un webhook activo. Telegram no permite usar "
+                  "getUpdates mientras existe un webhook. "
+                  "Webhook configurado en: "
+                  + webhook_url
               )
 
-          chat = chats[-1]
-          print("")
-          print("==========================================")
-          print(f"TELEGRAM_CHAT_ID = {chat['id']}")
-          print(f"Nombre detectado = {chat.get('first_name', '(sin nombre)')}")
-          print("==========================================")
-          print("")
+          print("Webhook: ninguno. getUpdates está disponible.")
+          print("Esperando un mensaje privado nuevo durante hasta 30 segundos...")
+          print("Si todavía no lo has hecho, abre AHORA el bot en Telegram y envía /start.")
+
+          for attempt in range(3):
+              updates = api(
+                  "getUpdates",
+                  {
+                      "timeout": 10,
+                      "limit": 100,
+                      "allowed_updates": ["message", "edited_message"],
+                  },
+              )
+
+              chats = []
+              for update in updates:
+                  message = update.get("message") or update.get("edited_message")
+                  if not message:
+                      continue
+                  chat = message.get("chat") or {}
+                  if chat.get("type") == "private" and chat.get("id") is not None:
+                      chats.append(chat)
+
+              if chats:
+                  chat = chats[-1]
+                  print("")
+                  print("==========================================")
+                  print(f"TELEGRAM_CHAT_ID = {chat['id']}")
+                  print(f"Nombre detectado = {chat.get('first_name', '(sin nombre)')}")
+                  print("==========================================")
+                  print("")
+                  raise SystemExit(0)
+
+              if attempt < 2:
+                  print(f"No hay chat privado todavía. Reintentando ({attempt + 1}/2)...")
+                  time.sleep(1)
+
+          raise SystemExit(
+              "Telegram responde correctamente, pero no ha llegado ningún mensaje "
+              "privado al bot. Envía /start mientras este workflow está ejecutándose "
+              "y vuelve a intentarlo."
+          )
           PY
