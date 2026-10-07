@@ -11,13 +11,16 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
 
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
+      - name: Instalar dependencias
+        run: pip install --disable-pip-version-check -r requirements.txt
       - name: Compilar
         run: python -m py_compile monitor.py
       - name: Tests unitarios
