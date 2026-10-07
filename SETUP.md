@@ -108,7 +108,7 @@ La misma ejecución consultará también la capacidad real.
 
 ## Qué hace después
 
-Cada 30 minutos consulta:
+Cada 5 minutos consulta:
 
 - región `eu-madrid-1`
 - `VM.Standard.A1.Flex`
