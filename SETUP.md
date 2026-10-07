@@ -82,7 +82,17 @@ Después de haber enviado `/start` al bot:
 6. Añade ese número como sexto secret:
    `TELEGRAM_CHAT_ID`.
 
-## 5. Probar todo
+## 5. Hacer público el repositorio
+
+Este monitor no contiene credenciales ni datos privados. Para aprovechar GitHub Actions sin consumir la cuota mensual de minutos de un repositorio privado, cambia el repositorio a **Public**:
+
+**Settings → General → Danger Zone → Change repository visibility → Make public**
+
+Los **Repository Secrets siguen siendo secretos** y no se muestran al hacer público el repositorio.
+
+Después de hacerlo, el workflow comprobará automáticamente la capacidad cada **5 minutos**.
+
+## 6. Probar todo
 
 1. GitHub → **Actions**.
 2. Abre **Comprobar capacidad Oracle A1.Flex**.
@@ -109,8 +119,8 @@ Si Oracle cambia de no disponible a disponible, envía inmediatamente un único 
 
 El Capacity Report **no reserva** la máquina. Cuando llegue el aviso hay que ejecutar el Apply cuanto antes.
 
-## Por qué 30 minutos y no 5 en este repositorio privado
+## Frecuencia
 
-GitHub redondea cada job privado al siguiente minuto facturable. Cada 5 minutos podría consumir unas 8.640 ejecuciones/minutos facturables al mes. GitHub Free incluye 2.000 minutos y GitHub Pro 3.000.
+El repositorio está preparado para ser **público**, por lo que el workflow comprueba la capacidad cada **5 minutos**.
 
-Cada 30 minutos son como máximo unas 1.440 ejecuciones al mes, dejando margen. Si se convierte este repositorio en **público**, los runners estándar de GitHub Actions dejan de consumir esa cuota y se puede bajar el cron a 5 minutos.
+Esto es importante en este caso porque el Capacity Report no reserva capacidad: cuando aparezca un hueco queremos enterarnos rápidamente.
